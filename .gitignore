@@ -1,0 +1,18 @@
+# Runtime environment with secrets
+environment
+.env
+*.env
+!examples/*.example
+
+# Secret files
+*.secret
+secrets/
+
+# Realm exports (may contain sensitive data) and raw user dumps
+*realm-export*.json
+users-raw.json
+user-groups.txt
+
+# Logs and temporary files
+*.log
+tmp/

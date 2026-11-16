@@ -1,0 +1,6 @@
+{
+  "groups": [
+    { "name": "TasmoFleet Admins" },
+    { "name": "TasmoFleet Users" }
+  ]
+}

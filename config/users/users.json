@@ -1,0 +1,22 @@
+{
+  "users": [
+    {
+      "username": "tasmofleet-admin",
+      "firstName": "TasmoFleet",
+      "lastName": "Admin",
+      "email": "tasmofleet-admin@dummy.local",
+      "emailVerified": false,
+      "enabled": true,
+      "groups": ["TasmoFleet Admins"]
+    },
+    {
+      "username": "tasmofleet-user",
+      "firstName": "TasmoFleet",
+      "lastName": "User",
+      "email": "tasmofleet-user@dummy.local",
+      "emailVerified": false,
+      "enabled": true,
+      "groups": ["TasmoFleet Users"]
+    }
+  ]
+}

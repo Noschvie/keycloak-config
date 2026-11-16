@@ -1,0 +1,13 @@
+keycloak-config
+Copyright (C) 2026 Noschvie
+Licensed under AGPL-3.0-or-later (see LICENSE).
+
+Third-party components
+----------------------
+
+None bundled. The scripts call the following tools at runtime, which are
+not part of this repository and are subject to their own licences:
+
+- Keycloak / kcadm.sh (Apache License 2.0), run inside the Keycloak container
+- jq (MIT License)
+- Docker CLI (Apache License 2.0)
