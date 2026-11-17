@@ -102,15 +102,34 @@ load_secret() {
   fi
 }
 
+# Login mode:
+#   client -- service account (KC_AUTOMATION_CLIENT_ID + secret), default
+#             when KC_AUTOMATION_CLIENT_ID is set
+#   user   -- admin user (KC_ADMIN_USER + password or prompt); forced by
+#             KC_FORCE_USER_LOGIN=1 (used by the bootstrap script)
+login_mode() {
+  if [[ -n "${KC_AUTOMATION_CLIENT_ID:-}" && "${KC_FORCE_USER_LOGIN:-0}" != "1" ]]; then
+    echo client
+  else
+    echo user
+  fi
+}
+
 check_prerequisites() {
   require_cmd docker jq
-  require_env KC_CONTAINER KC_SERVER_URL KC_ADMIN_REALM KC_ADMIN_USER
+  require_env KC_CONTAINER KC_SERVER_URL KC_ADMIN_REALM
   # Renamed variables: fail loudly instead of silently ignoring them.
   local old
   for old in KC_TEMP_PASSWORD KC_TEMP_PASSWORD_FILE; do
     [[ -z "${!old:-}" ]] || die "${old} has been renamed to ${old/KC_TEMP_PASSWORD/KC_USER_INITIAL_PASSWORD} -- please update your environment"
   done
-  load_secret KC_ADMIN_PASSWORD
+  if [[ "$(login_mode)" == "client" ]]; then
+    load_secret KC_AUTOMATION_CLIENT_SECRET
+    require_env KC_AUTOMATION_CLIENT_SECRET
+  else
+    require_env KC_ADMIN_USER
+    load_secret KC_ADMIN_PASSWORD
+  fi
   load_secret KC_USER_INITIAL_PASSWORD
   [[ "$(docker inspect -f '{{.State.Running}}' "$KC_CONTAINER" 2>/dev/null)" == "true" ]] \
     || die "container not running: $KC_CONTAINER"
@@ -138,17 +157,30 @@ kc_in() {
 
 # Authenticate once per run. Skipped when KC_SKIP_LOGIN=1 (set by
 # apply-all.sh after it has logged in).
+#
+# Secrets are passed as environment variable KC_LOGIN_SECRET into the
+# container (docker exec -e NAME, value taken from this shell), so they
+# never appear on the host's command line or in the script output.
 kc_login() {
   if [[ "${KC_SKIP_LOGIN:-0}" == "1" ]]; then
     return 0
   fi
+
+  if [[ "$(login_mode)" == "client" ]]; then
+    log_info "login: client ${KC_AUTOMATION_CLIENT_ID}@${KC_ADMIN_REALM} via container ${KC_CONTAINER}"
+    KC_LOGIN_SECRET="$KC_AUTOMATION_CLIENT_SECRET" \
+    docker exec "${KC_EXEC_ENV[@]}" -e KC_LOGIN_SECRET "$KC_CONTAINER" bash -c \
+      '"$0" config credentials --config "$1" --server "$2" --realm "$3" --client "$4" --secret "$KC_LOGIN_SECRET"' \
+      "$KCADM" "$KCADM_CONFIG" "$KC_SERVER_URL" "$KC_ADMIN_REALM" "$KC_AUTOMATION_CLIENT_ID" >/dev/null \
+      || die "login failed (client ${KC_AUTOMATION_CLIENT_ID})"
+    return 0
+  fi
+
   log_info "login: ${KC_ADMIN_USER}@${KC_ADMIN_REALM} via container ${KC_CONTAINER}"
   if [[ -n "${KC_ADMIN_PASSWORD:-}" ]]; then
-    # The password is passed as environment variable into the container
-    # (docker exec -e NAME, value taken from this shell), so it never
-    # appears on the host's command line or in the script output.
-    docker exec "${KC_EXEC_ENV[@]}" -e KC_ADMIN_PASSWORD "$KC_CONTAINER" bash -c \
-      '"$0" config credentials --config "$1" --server "$2" --realm "$3" --user "$4" --password "$KC_ADMIN_PASSWORD"' \
+    KC_LOGIN_SECRET="$KC_ADMIN_PASSWORD" \
+    docker exec "${KC_EXEC_ENV[@]}" -e KC_LOGIN_SECRET "$KC_CONTAINER" bash -c \
+      '"$0" config credentials --config "$1" --server "$2" --realm "$3" --user "$4" --password "$KC_LOGIN_SECRET"' \
       "$KCADM" "$KCADM_CONFIG" "$KC_SERVER_URL" "$KC_ADMIN_REALM" "$KC_ADMIN_USER" >/dev/null \
       || die "login failed"
   else

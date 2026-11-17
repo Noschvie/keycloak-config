@@ -25,10 +25,19 @@ KC_CONTAINER=dev-keycloak-1
 # Admin API endpoint as seen from inside the container
 KC_SERVER_URL=http://localhost:8080
 
-# Account used by the scripts to authenticate
+# Realm the scripts authenticate against
 KC_ADMIN_REALM=master
+
+# Automation client (service account, recommended). When set, all
+# configure-*/apply-all/verify scripts log in with this client.
+# Create it once with scripts/bootstrap-automation-client.sh.
+KC_AUTOMATION_CLIENT_ID=keycloak-config
+KC_AUTOMATION_CLIENT_SECRET_FILE=secrets/automation-client-secret
+
+# Admin user: used by bootstrap-automation-client.sh, and by all scripts
+# when KC_AUTOMATION_CLIENT_ID is not set.
 KC_ADMIN_USER=admin
-# Password file (recommended). Leave both empty to be prompted.
+# Password file. Leave both empty to be prompted.
 KC_ADMIN_PASSWORD_FILE=secrets/admin-password
 # KC_ADMIN_PASSWORD=
 

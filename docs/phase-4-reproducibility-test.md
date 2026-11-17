@@ -70,5 +70,5 @@ against the configured realm.
 Follow-up done: the default temporary password was removed; the initial
 password for new users is now mandatory (`KC_USER_INITIAL_PASSWORD_FILE`).
 
-Open for later: dedicated automation account instead of a master-realm
-administrator.
+Follow-up: dedicated automation account instead of a master-realm
+administrator, see [phase-5-automation-account.md](phase-5-automation-account.md).

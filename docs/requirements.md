@@ -161,8 +161,9 @@ deployment-specific credentials.
     variables, directory `secrets/`, Git-ignored) or environment
     variables.
 -   Secrets are never printed in script output or logs.
--   Use a dedicated automation account where feasible; do not depend on
-    the permanent use of the master-realm administrator (future work).
+-   The scripts run as a dedicated automation client (service account
+    `keycloak-config`) with minimal roles; the master-realm
+    administrator is only needed once for its bootstrap (Phase 5).
 -   Keep test and production credentials separate.
 -   Treat realm exports as sensitive until reviewed; they are
     Git-ignored.
@@ -197,6 +198,7 @@ deployment-specific credentials.
 | 2 | Declarative configuration files | [phase-2-declarative-configuration.md](phase-2-declarative-configuration.md) |
 | 3 | Automation scripts | [phase-3-automation.md](phase-3-automation.md) |
 | 4 | Reproducibility test | [phase-4-reproducibility-test.md](phase-4-reproducibility-test.md) |
+| 5 | Automation account   | [phase-5-automation-account.md](phase-5-automation-account.md) |
 
 ## 9. Acceptance criteria
 
@@ -233,6 +235,7 @@ deployment-specific credentials.
 | 10 | Deletions            | Never automatic; only as separate, explicitly confirmed action        |
 | 11 | Usernames            | ASCII only; first/last names may contain non-ASCII characters         |
 | 12 | Secret input         | Secret files (`*_FILE`), read verbatim; any character allowed         |
+| 13 | Automation account   | Service account `keycloak-config` in `master`, `create-realm` + minimal roles on `<realm>-realm` |
 
 ## 11. References
 

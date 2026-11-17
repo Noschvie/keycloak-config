@@ -27,9 +27,11 @@ config/
   clients/tasmofleet.json    OIDC client incl. protocol mapper "groups"
   groups/groups.json         TasmoFleet Admins, TasmoFleet Users
   users/users.json           users and groups (no passwords)
+  automation/keycloak-config.json  automation client and its roles
 scripts/
   apply-all.sh               apply everything (realm -> groups -> clients -> users)
   verify-configuration.sh    drift report, changes nothing
+  bootstrap-automation-client.sh  one-time: create the automation client
   configure-realm.sh         single steps, can be run individually
   configure-groups.sh
   configure-clients.sh
@@ -44,7 +46,8 @@ examples/environment.example runtime variables
 - On the host: `docker`, `jq`, `bash`
 - No Keycloak installation on the host: `kcadm.sh` runs inside the
   Keycloak container via `docker exec`.
-- An admin account in the `master` realm
+- An admin user in the `master` realm -- needed once for the bootstrap
+  of the automation client (see [Automation account](#automation-account))
 
 ## Setup
 
@@ -67,7 +70,9 @@ set -a; . ./environment; set +a
 | `KC_CONTAINER`                  | yes      | Keycloak container, e.g. `dev-keycloak-1`          |
 | `KC_SERVER_URL`                 | yes      | `http://localhost:8080` (as seen from the container) |
 | `KC_ADMIN_REALM`                | yes      | `master`                                           |
-| `KC_ADMIN_USER`                 | yes      | admin user (ASCII)                                 |
+| `KC_AUTOMATION_CLIENT_ID`       | recommended | automation client, e.g. `keycloak-config`       |
+| `KC_AUTOMATION_CLIENT_SECRET_FILE` | with client | file with the automation client secret       |
+| `KC_ADMIN_USER`                 | bootstrap | admin user (ASCII); used when no automation client is set |
 | `KC_ADMIN_PASSWORD_FILE`        | no       | file with the admin password; empty = prompt       |
 | `TASMOFLEET_BASE_URL`           | yes      | e.g. `https://tasmofleet.example.org`, lower case, no trailing `/` |
 | `TASMOFLEET_CLIENT_SECRET_FILE` | yes      | file with the client secret, must match TasmoFleet |
@@ -89,6 +94,44 @@ set -a; . ./environment; set +a
   contain umlauts.
 - `kcadm.sh` runs with `LC_ALL=C.UTF-8` so that non-ASCII characters in
   command line arguments are decoded correctly.
+
+## Automation account
+
+The scripts should not run with a full master-realm administrator.
+Instead, a confidential client `keycloak-config` in the `master` realm
+acts as **service account** with only the roles it needs
+(`config/automation/keycloak-config.json`):
+
+| Roles                                   | Purpose                              |
+|-----------------------------------------|--------------------------------------|
+| realm role `create-realm`               | create the realm on a fresh instance |
+| `tasmofleet-realm`: `view-realm`, `manage-realm` | realm settings              |
+| `tasmofleet-realm`: `query-clients`, `view-clients`, `manage-clients` | TasmoFleet client |
+| `tasmofleet-realm`: `query-users`, `view-users`, `manage-users`, `query-groups` | users, groups, memberships |
+
+It has no rights on the `master` realm or on other existing realms. A
+realm it creates itself grants it full access to that realm (Keycloak
+gives the creator of a realm admin rights).
+
+**One-time setup per Keycloak instance** (with the admin user):
+
+```bash
+openssl rand -base64 32 | tr -d '\n' > secrets/automation-client-secret
+chmod 600 secrets/automation-client-secret
+./scripts/bootstrap-automation-client.sh
+```
+
+From then on, with `KC_AUTOMATION_CLIENT_ID` and
+`KC_AUTOMATION_CLIENT_SECRET_FILE` set in `environment`, all other
+scripts log in as the service account (`login: client keycloak-config@master`).
+The admin password is no longer needed for regular runs.
+
+- The bootstrap is idempotent: run it again whenever the role list
+  changes. Roles are only added, never removed.
+- The roles on `tasmofleet-realm` exist only once the realm exists. On a
+  fresh instance: bootstrap → `apply-all.sh` → bootstrap again.
+- Without `KC_AUTOMATION_CLIENT_ID`, the scripts log in as admin user as
+  before.
 
 ## Usage
 
@@ -180,6 +223,8 @@ KC_USER_INITIAL_PASSWORD_FILE=secrets/user-initial-password
 | `container not running`                          | check `KC_CONTAINER` with `docker ps`                     |
 | `login failed`                                   | admin user/password, `KC_ADMIN_REALM`, `KC_SERVER_URL`    |
 | `no terminal for the password prompt`            | set `KC_ADMIN_PASSWORD_FILE` or run interactively         |
+| `login failed (client keycloak-config)`          | run `bootstrap-automation-client.sh`; check the secret file |
+| `HTTP 403 Forbidden` with the automation client  | missing role: add it to `config/automation/keycloak-config.json`, rerun the bootstrap |
 | `required environment variable not set`          | load `environment`: `set -a; . ./environment; set +a`     |
 | `new user(s) ... require an initial password`    | set `KC_USER_INITIAL_PASSWORD_FILE`                       |
 | `KC_TEMP_PASSWORD... has been renamed`           | rename to `KC_USER_INITIAL_PASSWORD(_FILE)` in `environment` |
@@ -199,6 +244,7 @@ Overview here, details per phase in [`docs/`](docs/):
 | [phase-2-declarative-configuration.md](docs/phase-2-declarative-configuration.md) | JSON files and conventions |
 | [phase-3-automation.md](docs/phase-3-automation.md) | Script design, secret handling, mock tests |
 | [phase-4-reproducibility-test.md](docs/phase-4-reproducibility-test.md) | Tests against a real Keycloak 26.8 |
+| [phase-5-automation-account.md](docs/phase-5-automation-account.md) | Service account with minimal roles |
 
 ## License
 
