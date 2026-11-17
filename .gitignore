@@ -1,5 +1,6 @@
 # Runtime environment with secrets
 environment
+environment.*
 .env
 *.env
 !examples/*.example
