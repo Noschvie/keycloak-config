@@ -1,6 +1,6 @@
 # Keycloak Configuration as Code -- Requirements
 
-**Status:** v0.4 (Proof of Concept, implemented)\
+**Status:** v0.4 (Proof of Concept, implemented and tested -- see Phase 4)\
 **Project:** `keycloak-config`\
 **Target realm:** `tasmofleet`\
 **Target Keycloak version:** 26.8\

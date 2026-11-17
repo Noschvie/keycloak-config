@@ -1,6 +1,6 @@
 # Phase 4 -- Reproducibility Test
 
-**Status:** Part A passed; Part B (live instance) pending\
+**Status:** Completed -- Part A and Part B passed (2026-11-17)\
 **Related:** [phase-3-automation.md](phase-3-automation.md)
 
 ------------------------------------------------------------------------
@@ -43,17 +43,29 @@ The TasmoFleet redirect after login and the post-logout redirect could
 not be tested without a TasmoFleet test instance; they are covered in
 Part B.
 
-## Part B -- Live instance `keycloak` (pending)
+## Part B -- Live instance `keycloak`
 
-1.  Backup: `pg_dump` of the Keycloak PostgreSQL database.
-2.  `secrets/tasmofleet-client-secret` = the secret currently used by
-    TasmoFleet.
-3.  `KC_CONTAINER=keycloak ./scripts/verify-configuration.sh` -- review
-    the drift report. Expected:
-    -   realm: `bruteForceProtected`, `failureFactor`
-    -   client: `redirectUris`, `webOrigins`,
-        `attributes.post.logout.redirect.uris`, possibly `secret`
-    -   users: `email`, `firstName`, `lastName`
-4.  `KC_CONTAINER=keycloak ./scripts/apply-all.sh`
-5.  Second run: all `[UNCHANGED]`.
-6.  TasmoFleet login, redirect back, logout, post-logout redirect.
+Keycloak 26.8.2 with PostgreSQL, existing realm `tasmofleet`
+(2026-11-17). Client URIs and user data had already been aligned
+manually with the Git configuration before the run.
+
+| # | Test                                                       | Result |
+|---|------------------------------------------------------------|--------|
+| B1| Backup of the Keycloak database (`pg_dump`)                | Done |
+| B2| `verify-configuration.sh`                                  | Drift: realm `bruteForceProtected`, `failureFactor`; client and users unchanged (no `secret` drift -- secret file matches TasmoFleet) |
+| B3| `apply-all.sh`                                             | `[UPDATED] realm tasmofleet: bruteForceProtected, failureFactor`, everything else `[UNCHANGED]` |
+| B4| `verify-configuration.sh` after apply                      | 0 changes, "matches" |
+| B5| TasmoFleet login via Keycloak, redirect back to TasmoFleet | OK |
+| B6| TasmoFleet logout, post-logout redirect                    | OK |
+
+## Result
+
+All acceptance criteria from [requirements.md](requirements.md) are met:
+the realm is configured from the repository as Source of Truth, runs are
+idempotent, unmanaged settings and passwords are preserved, nothing is
+deleted, secrets stay outside Git, and TasmoFleet login and logout work
+against the configured realm.
+
+Open for later (out of PoC scope): replace the default temporary
+password, dedicated automation account instead of a master-realm
+administrator.
