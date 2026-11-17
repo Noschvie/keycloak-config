@@ -1,6 +1,6 @@
 # Phase 5 -- Automation Account
 
-**Status:** Implemented; real test in progress\
+**Status:** Completed (2026-11-17) -- tested on dev and live instance\
 **Related:** [requirements.md](requirements.md) (section 6),
 [phase-3-automation.md](phase-3-automation.md)
 
@@ -114,17 +114,42 @@ The mock now emulates the 401 for client tokens without `kc-admin-api`;
 the full fresh-instance sequence (bootstrap → apply → bootstrap → apply)
 ends with 0 changes.
 
-## 5. Real test plan
+## 5. Real tests (2026-11-17)
 
-On `dev-keycloak-1` (reset):
+### Development instance `dev-keycloak-1`
 
-1.  Create `secrets/automation-client-secret`, run the bootstrap with
-    the admin user.
-2.  `apply-all.sh` as service account (fresh realm via `create-realm`).
-3.  Bootstrap again, then `apply-all.sh` twice: all `[UNCHANGED]`, no
-    `403 Forbidden`.
-4.  Negative check: `kcadm.sh get realms/master` as service account must
-    be refused.
+| # | Test | Result |
+|---|------|--------|
+| D1| Bootstrap after the scope fix | `kc-admin-api` added; afterwards all client calls succeed (confirms the cause of the 401) |
+| D2| `apply-all.sh` as service account on a realm with deviating settings | Realm, client (incl. secret), protocol mapper, groups, users with initial password and memberships created/updated -- the role set is sufficient |
+| D3| Bootstrap and `apply-all.sh` again | 0 changes |
+| D4| Isolation: `get users -r master`, `get clients -r master`, `update realms/master` | `403 Forbidden` each |
+| D5| Access to realm `tasmofleet` (`get users`) | OK |
+| D6| `create-realm`: service account creates realm `create-test`, then `get users -r create-test` | Realm created; `[]` instead of 403 -- creator rights granted |
 
-On `keycloak` (live): bootstrap with the admin user, then
-`verify-configuration.sh` as service account → "matches".
+`get realms/master` as service account returns only a reduced
+representation (name, display name, locales): Keycloak shows it to any
+account with an admin role in `master` for the realm name list. The full
+representation requires `view-realm` on `master`, which the account does
+not have.
+
+Note: `dev-keycloak-1` imports the development realm of the login theme
+project on start. Running these scripts against it overwrites that
+realm's client settings; reset the container afterwards if it is used
+for theme development.
+
+Cosmetic fix from the dev test: `kcadm.sh` prints "Created new ... with
+id ..." on stderr; these notices are filtered.
+
+### Live instance `keycloak`
+
+| # | Test | Result |
+|---|------|--------|
+| L1| Bootstrap with the admin user, separate client secret for the live instance | Client created, `kc-admin-api`, `create-realm` and 9 roles on `tasmofleet-realm` added |
+| L2| `verify-configuration.sh` as service account | Login `client keycloak-config@master`; 0 changes, "matches" |
+
+## 6. Result
+
+The scripts run without a master-realm administrator. The admin user is
+only needed for `bootstrap-automation-client.sh` (once per instance and
+when the role list changes). Use a separate client secret per instance.
