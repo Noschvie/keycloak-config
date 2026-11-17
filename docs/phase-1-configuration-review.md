@@ -170,7 +170,7 @@ not managed.
 | `KC_CONTAINER`             | `keycloak` / `dev-keycloak-1`          | yes      |
 | `TASMOFLEET_BASE_URL`      | `https://tasmofleet.example.org`       | yes      |
 | `TASMOFLEET_CLIENT_SECRET` | runtime secret, must match TasmoFleet  | yes      |
-| `KC_TEMP_PASSWORD`         | optional, default `myPassword`         | no       |
+| `KC_USER_INITIAL_PASSWORD` | initial password for new users (no default) | for new users |
 
 ## 5. Decisions
 

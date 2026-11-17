@@ -73,9 +73,8 @@ Consequences:
     client.
 4.  Manage users and group assignments reproducibly from a static
     `users.json`.
-5.  Keep real passwords, client secrets and other credentials out of
-    the Git repository (PoC exception: default temporary initial
-    password, see section 5).
+5.  Keep passwords, client secrets and other credentials out of the
+    Git repository.
 6.  Make the setup repeatable on another Keycloak instance or host.
 7.  Support initial provisioning and controlled updates according to
     the Source-of-Truth rules in section 2.
@@ -93,7 +92,7 @@ Consequences:
     protocol mappers, login theme, logo URI.
 -   Groups used for authorisation.
 -   Users from a static `users.json`: username, profile attributes,
-    enabled state, group memberships, initial temporary password.
+    enabled state, group memberships, initial password.
 -   Automation with the official Keycloak Admin CLI (`kcadm.sh`) of
     Keycloak 26.8; idempotent, with validation, drift report and clear
     error reporting.
@@ -126,36 +125,37 @@ User lifecycle:
 4.  **Only when the user is newly created:** set the temporary password
     (`temporary: true`) and the required action `UPDATE_PASSWORD`.
 
-### 5.1 Temporary password (PoC decision)
+### 5.1 Initial password
 
-``` bash
-readonly TEMP_PASSWORD="${KC_TEMP_PASSWORD:-myPassword}"
-```
+The initial password for new users is supplied at runtime via
+`KC_USER_INITIAL_PASSWORD_FILE` (file, read verbatim, any characters)
+or `KC_USER_INITIAL_PASSWORD`.
 
--   Default `myPassword`, overridable via `KC_TEMP_PASSWORD_FILE`
-    (file, any characters) or `KC_TEMP_PASSWORD`.
--   The script reports the source (default, variable, file), never the
-    value.
+-   **No default.** If a user has to be created and no initial password
+    is set, the script aborts before creating anything; the dry run
+    only warns. Runs without new users do not need it.
+-   The script reports the source (file or variable), never the value.
 -   Set only when a user is **created**; existing passwords are
     **never** reset.
 -   Usable only for the first login, then replaced by the user.
 
-**Accepted risk:** the default is part of the repository. Anyone who
-knows it can log in as a newly created user until that user has changed
-the password. Acceptable for the PoC in a test environment only.
-**Before production use**, remove the default or replace the mechanism
-(per-user generated passwords, execute-actions email once SMTP is
-available).
+History: the PoC started with a hardcoded default (`myPassword`),
+overridable via `KC_TEMP_PASSWORD`. As the default was readable in the
+public repository, it was removed and the variable renamed to
+`KC_USER_INITIAL_PASSWORD` (decision 6). The old names abort with a
+hint to rename.
 
 Setting `UPDATE_PASSWORD` alone is not sufficient: a user without a
 password credential cannot log in, so the temporary credential is
-mandatory for the bootstrap.
+mandatory for the bootstrap. Per-user generated passwords or an
+execute-actions email flow (once SMTP is available) remain possible
+extensions.
 
 ## 6. Security and secret management
 
 The repository must not contain client secrets, administrator
-passwords, user passwords or hashes (sole PoC exception: the default
-temporary password), tokens or other deployment-specific credentials.
+passwords, user passwords or hashes, tokens or other
+deployment-specific credentials.
 
 -   Secrets are supplied at runtime from protected files (`*_FILE`
     variables, directory `secrets/`, Git-ignored) or environment
@@ -181,7 +181,7 @@ temporary password), tokens or other deployment-specific credentials.
 | Object defined in Git, exists in Keycloak     | Update managed attributes only  |
 | Attribute not defined in Git                  | Leave untouched                 |
 | Object exists in Keycloak, not defined in Git | Leave untouched (no deletion)   |
-| New user                                      | Temporary password + `UPDATE_PASSWORD` |
+| New user                                      | Initial password (temporary) + `UPDATE_PASSWORD` |
 | Existing user's password                      | Leave untouched (no reset)      |
 
 -   Scripts are safe to run any number of times; a second run with
@@ -205,7 +205,7 @@ temporary password), tokens or other deployment-specific credentials.
 -   The TasmoFleet OIDC client is created and updated automatically,
     with correct redirect and post-logout redirect URIs.
 -   Users are provisioned from `users.json` without passwords in Git.
--   New users receive the temporary password and must change it at
+-   New users receive the initial password and must change it at
     first login; no SMTP is required.
 -   Existing users' passwords are never reset by a normal run.
 -   Client secrets and admin credentials are supplied outside the
@@ -215,8 +215,7 @@ temporary password), tokens or other deployment-specific credentials.
     anything automatically.
 -   A clean test setup completes login and logout.
 -   The README explains prerequisites, execution, verification and
-    troubleshooting, and documents the PoC limitation of the temporary
-    password.
+    troubleshooting, and the initial password handling.
 
 ## 10. Decisions
 
@@ -226,8 +225,8 @@ temporary password), tokens or other deployment-specific credentials.
 | 2  | Realm                | `tasmofleet`                                                          |
 | 3  | User source          | Static `config/users/users.json`                                      |
 | 4  | Secrets              | No real passwords or client secrets in Git                            |
-| 5  | Initial user access  | Temporary password + `UPDATE_PASSWORD` at first login                 |
-| 6  | Temporary password   | PoC: default `myPassword` in the script, overridable; only set on user creation |
+| 5  | Initial user access  | Initial password (temporary credential) + `UPDATE_PASSWORD`           |
+| 6  | Initial password     | `KC_USER_INITIAL_PASSWORD_FILE`, required for new users, no default; only set on user creation |
 | 7  | SMTP                 | Not required, not assumed                                             |
 | 8  | Operating mode       | Initial provisioning and controlled updates                           |
 | 9  | Source of Truth      | Git configuration and scripts define the desired state                |

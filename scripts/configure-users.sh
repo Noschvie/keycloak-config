@@ -4,8 +4,11 @@
 # Create or update users from config/users/users.json and ensure their
 # group memberships.
 #
-# - New users get the temporary password and must change it at first
-#   login (UPDATE_PASSWORD).
+# - New users get the initial password from KC_USER_INITIAL_PASSWORD_FILE
+#   (or KC_USER_INITIAL_PASSWORD) as a temporary credential and must
+#   change it at first login (UPDATE_PASSWORD). There is no default: if a
+#   user has to be created and no initial password is set, the script
+#   aborts before creating anything.
 # - Existing users: managed attributes are updated, the password is
 #   NEVER reset.
 # - Group memberships are only added, never removed.
@@ -13,24 +16,21 @@ set -euo pipefail
 # shellcheck source=lib/common.sh
 source "$(dirname "$0")/lib/common.sh"
 
-# check_prerequisites also loads KC_TEMP_PASSWORD from KC_TEMP_PASSWORD_FILE
+# check_prerequisites also loads KC_USER_INITIAL_PASSWORD from
+# KC_USER_INITIAL_PASSWORD_FILE
 check_prerequisites
-
-# PoC: default temporary password, overridable via KC_TEMP_PASSWORD(_FILE)
-readonly TEMP_PASSWORD="${KC_TEMP_PASSWORD:-myPassword}"
-
 kc_login
 
 realm="$(realm_name)"
 require_realm "$realm"
 users_file="${CONFIG_DIR}/users/users.json"
 
-if [[ -n "${KC_TEMP_PASSWORD_FILE:-}" ]]; then
-  log_info "temporary password source: file KC_TEMP_PASSWORD_FILE"
-elif [[ -n "${KC_TEMP_PASSWORD:-}" ]]; then
-  log_info "temporary password source: environment variable KC_TEMP_PASSWORD"
+if [[ -n "${KC_USER_INITIAL_PASSWORD_FILE:-}" ]]; then
+  initial_pw_source="file KC_USER_INITIAL_PASSWORD_FILE"
+elif [[ -n "${KC_USER_INITIAL_PASSWORD:-}" ]]; then
+  initial_pw_source="environment variable KC_USER_INITIAL_PASSWORD"
 else
-  log_info "temporary password source: script default (PoC)"
+  initial_pw_source=""
 fi
 
 all_groups="$(kc get groups -r "$realm" --fields id,name)"
@@ -70,20 +70,40 @@ ensure_groups() {
 }
 
 count="$(jq '.users | length' "$users_file")"
+
+# First pass: look up all users, so that a missing initial password is
+# detected before anything is created.
+declare -a uids
+new_users=()
+for (( i = 0; i < count; i++ )); do
+  username="$(jq -r ".users[$i].username" "$users_file")"
+  uids[i]="$(user_id "$username")"
+  [[ -n "${uids[i]}" ]] || new_users+=("$username")
+done
+
+if (( ${#new_users[@]} > 0 )); then
+  if [[ -n "$initial_pw_source" ]]; then
+    log_info "initial password source: ${initial_pw_source}"
+  elif is_dry_run; then
+    log_warn "new user(s) ${new_users[*]}: KC_USER_INITIAL_PASSWORD_FILE must be set to apply"
+  else
+    die "new user(s) ${new_users[*]} require an initial password -- set KC_USER_INITIAL_PASSWORD_FILE (or KC_USER_INITIAL_PASSWORD)"
+  fi
+fi
+
 for (( i = 0; i < count; i++ )); do
   user="$(jq -c ".users[$i]" "$users_file")"
   username="$(jq -r '.username' <<<"$user")"
   attrs="$(jq -c 'del(.groups)' <<<"$user")"
   groups="$(jq -c '.groups // []' <<<"$user")"
-
-  uid="$(user_id "$username")"
+  uid="${uids[i]}"
 
   if [[ -z "$uid" ]]; then
-    record_change created "user ${username} (temporary password, UPDATE_PASSWORD)"
+    record_change created "user ${username} (initial password, UPDATE_PASSWORD)"
     if ! is_dry_run; then
       # Password is passed via stdin as part of the representation,
       # never on a command line.
-      _KC_INITIAL_PW="$TEMP_PASSWORD" jq -c '
+      _KC_INITIAL_PW="$KC_USER_INITIAL_PASSWORD" jq -c '
         . + {
           requiredActions: ["UPDATE_PASSWORD"],
           credentials: [{ type: "password", value: $ENV._KC_INITIAL_PW, temporary: true }]

@@ -42,6 +42,9 @@ TASMOFLEET_CLIENT_SECRET_FILE=secrets/tasmofleet-client-secret
 # TASMOFLEET_CLIENT_SECRET=
 
 # --- Users ---------------------------------------------------------------
-# Optional: override the default temporary password for new users
-# KC_TEMP_PASSWORD_FILE=secrets/temp-password
-# KC_TEMP_PASSWORD=
+# Initial password for NEW users (temporary credential, must be changed
+# at first login). No default: required whenever a user is created,
+# not needed for runs that only update existing users.
+# Enable when adding users (the file must exist once this is set):
+# KC_USER_INITIAL_PASSWORD_FILE=secrets/user-initial-password
+# KC_USER_INITIAL_PASSWORD=

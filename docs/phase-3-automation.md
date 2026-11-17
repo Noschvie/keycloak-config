@@ -52,8 +52,9 @@ Exit codes: `0` ok, `1` error, `3` dry run with pending changes.
 -   Client secret: `<CLIENTID>_CLIENT_SECRET` (e.g.
     `TASMOFLEET_CLIENT_SECRET`), required for confidential clients,
     injected via `jq $ENV`.
--   Temporary password: inserted into the user representation via
-    `jq $ENV`, sent via stdin.
+-   Initial password (`KC_USER_INITIAL_PASSWORD(_FILE)`, no default):
+    checked for all new users before anything is created; inserted into
+    the user representation via `jq $ENV`, sent via stdin.
 -   `json_diff` receives JSON via environment variables, not arguments.
 -   Logs contain attribute **names** only, never values.
 
@@ -90,5 +91,5 @@ file. shellcheck: no findings.
 | 9 | Missing variables, trailing `/`, no terminal     | Clear error, exit 1 |
 | 10| Secret files with umlauts, quotes, `$(...)`, backticks, backslash | Received verbatim, nothing executed, nothing logged |
 
-Bug found during testing and fixed: the `readonly` `TEMP_PASSWORD`
+Bug found during testing and fixed: a `readonly` password variable
 could not be used as a temporary environment assignment for `jq`.

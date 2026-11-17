@@ -3,9 +3,8 @@
 Configuration as Code for the Keycloak realm **`tasmofleet`** (TasmoFleet
 login / SSO), based on `kcadm.sh` and JSON files.
 
-> **Status: Proof of Concept.** New users get a shared default temporary
-> password (see [Temporary password](#temporary-password)). Use in test
-> environments only.
+> **Status:** tested against Keycloak 26.8 (development and live
+> instance), see [docs/phase-4-reproducibility-test.md](docs/phase-4-reproducibility-test.md).
 
 ## Principle: Git is the Source of Truth
 
@@ -72,7 +71,7 @@ set -a; . ./environment; set +a
 | `KC_ADMIN_PASSWORD_FILE`        | no       | file with the admin password; empty = prompt       |
 | `TASMOFLEET_BASE_URL`           | yes      | e.g. `https://tasmofleet.example.org`, lower case, no trailing `/` |
 | `TASMOFLEET_CLIENT_SECRET_FILE` | yes      | file with the client secret, must match TasmoFleet |
-| `KC_TEMP_PASSWORD_FILE`         | no       | file with the temporary password for new users     |
+| `KC_USER_INITIAL_PASSWORD_FILE` | for new users | file with the initial password for new users  |
 
 `environment` and `secrets/` are Git-ignored. Never commit secrets.
 
@@ -140,30 +139,35 @@ TasmoFleet authorises via the `groups` claim, so every user needs one of
 the groups `TasmoFleet Admins` or `TasmoFleet Users`. Group memberships
 are only added, never removed.
 
-### Temporary password
+### Initial password for new users
 
-No SMTP is required. A **new** user gets a temporary password and must
-set a new one at first login (`UPDATE_PASSWORD`):
+No SMTP is required. A **new** user gets an initial password as a
+temporary credential and must set a new one at first login
+(`UPDATE_PASSWORD`).
 
 ```bash
-readonly TEMP_PASSWORD="${KC_TEMP_PASSWORD:-myPassword}"
+printf '%s' 'the-initial-password' > secrets/user-initial-password
+chmod 600 secrets/user-initial-password
+# in environment:
+KC_USER_INITIAL_PASSWORD_FILE=secrets/user-initial-password
 ```
 
-- Default `myPassword` (PoC), overridable via `KC_TEMP_PASSWORD_FILE` (or `KC_TEMP_PASSWORD`)
-- Set only when the user is created -- **existing passwords are never
-  reset**
-- Hand the temporary password to the user via a secure channel
-
-**PoC limitation:** the default is part of the repository. Anyone who
-knows it can log in as a newly created user before that user has changed
-the password. Before production use, remove the default.
+- **There is no default.** If a user has to be created and neither
+  `KC_USER_INITIAL_PASSWORD_FILE` nor `KC_USER_INITIAL_PASSWORD` is set,
+  `configure-users.sh` aborts *before* creating anything. The dry run
+  only warns.
+- Runs without new users do not need the variable.
+- The initial password is set only when the user is created --
+  **existing passwords are never reset**.
+- All users created in one run get the same initial password. Hand it
+  over via a secure channel; it is valid for the first login only.
 
 ## Recommended test procedure
 
 1. Run against the development instance first:
    `KC_CONTAINER=dev-keycloak-1` -- the realm is created from scratch.
 2. Test login and logout in TasmoFleet, and the first login with the
-   temporary password.
+   initial password.
 3. Run `apply-all.sh` again: all lines must be `[UNCHANGED]`.
 4. Then against the real instance (`KC_CONTAINER=keycloak`):
    `verify-configuration.sh` first and review the drift report, then
@@ -177,6 +181,8 @@ the password. Before production use, remove the default.
 | `login failed`                                   | admin user/password, `KC_ADMIN_REALM`, `KC_SERVER_URL`    |
 | `no terminal for the password prompt`            | set `KC_ADMIN_PASSWORD_FILE` or run interactively         |
 | `required environment variable not set`          | load `environment`: `set -a; . ./environment; set +a`     |
+| `new user(s) ... require an initial password`    | set `KC_USER_INITIAL_PASSWORD_FILE`                       |
+| `KC_TEMP_PASSWORD... has been renamed`           | rename to `KC_USER_INITIAL_PASSWORD(_FILE)` in `environment` |
 | `realm ... does not exist`                       | run `apply-all.sh` (or `configure-realm.sh` first)        |
 | `TASMOFLEET_BASE_URL must not end with '/'`      | remove trailing slash                                     |
 | Same attribute reported as changed on every run  | Keycloak normalises the value: adjust the value in Git to the form Keycloak returns |

@@ -67,6 +67,8 @@ idempotent, unmanaged settings and passwords are preserved, nothing is
 deleted, secrets stay outside Git, and TasmoFleet login and logout work
 against the configured realm.
 
-Open for later (out of PoC scope): replace the default temporary
-password, dedicated automation account instead of a master-realm
+Follow-up done: the default temporary password was removed; the initial
+password for new users is now mandatory (`KC_USER_INITIAL_PASSWORD_FILE`).
+
+Open for later: dedicated automation account instead of a master-realm
 administrator.

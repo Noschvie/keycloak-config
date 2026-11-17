@@ -105,8 +105,13 @@ load_secret() {
 check_prerequisites() {
   require_cmd docker jq
   require_env KC_CONTAINER KC_SERVER_URL KC_ADMIN_REALM KC_ADMIN_USER
+  # Renamed variables: fail loudly instead of silently ignoring them.
+  local old
+  for old in KC_TEMP_PASSWORD KC_TEMP_PASSWORD_FILE; do
+    [[ -z "${!old:-}" ]] || die "${old} has been renamed to ${old/KC_TEMP_PASSWORD/KC_USER_INITIAL_PASSWORD} -- please update your environment"
+  done
   load_secret KC_ADMIN_PASSWORD
-  load_secret KC_TEMP_PASSWORD
+  load_secret KC_USER_INITIAL_PASSWORD
   [[ "$(docker inspect -f '{{.State.Running}}' "$KC_CONTAINER" 2>/dev/null)" == "true" ]] \
     || die "container not running: $KC_CONTAINER"
 }
