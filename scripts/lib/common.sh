@@ -151,8 +151,10 @@ check_prerequisites() {
 
 # --- kcadm.sh inside the container ------------------------------------
 
-# kcadm.sh writes empty lines to stderr; drop them, keep real messages.
-_filter_blank() { grep -v '^[[:space:]]*$' >&2 || true; }
+# kcadm.sh writes empty lines and "Created new ... with id '...'" to
+# stderr; drop them (the scripts report creations themselves), keep real
+# messages.
+_filter_blank() { grep -vE "^[[:space:]]*$|^Created new [a-z -]+ with id '[^']*'$" >&2 || true; }
 
 # UTF-8 locale inside the container, so that non-ASCII characters in
 # command line arguments (e.g. admin password, group names) are decoded
