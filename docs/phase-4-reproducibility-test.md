@@ -57,6 +57,7 @@ manually with the Git configuration before the run.
 | B4| `verify-configuration.sh` after apply                      | 0 changes, "matches" |
 | B5| TasmoFleet login via Keycloak, redirect back to TasmoFleet | OK |
 | B6| TasmoFleet logout, post-logout redirect                    | OK |
+| B7| Authorisation via `groups` claim: `tasmofleet-admin` and `tasmofleet-user` | Each receives the expected permissions |
 
 ## Result
 
