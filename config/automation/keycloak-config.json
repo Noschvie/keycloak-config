@@ -12,6 +12,7 @@
     "implicitFlowEnabled": false,
     "directAccessGrantsEnabled": false
   },
+  "defaultClientScopes": ["kc-admin-api"],
   "realmRoles": ["create-realm"],
   "realmManagementRoles": [
     "view-realm",

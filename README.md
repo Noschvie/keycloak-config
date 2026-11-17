@@ -109,6 +109,10 @@ acts as **service account** with only the roles it needs
 | `tasmofleet-realm`: `query-clients`, `view-clients`, `manage-clients` | TasmoFleet client |
 | `tasmofleet-realm`: `query-users`, `view-users`, `manage-users`, `query-groups` | users, groups, memberships |
 
+In addition the client gets the default client scope `kc-admin-api`.
+Keycloak 26.8 accepts Admin API calls only with this audience in the
+token; without it every call fails with `401 Unauthorized`.
+
 It has no rights on the `master` realm or on other existing realms. A
 realm it creates itself grants it full access to that realm (Keycloak
 gives the creator of a realm admin rights).
@@ -224,6 +228,7 @@ KC_USER_INITIAL_PASSWORD_FILE=secrets/user-initial-password
 | `login failed`                                   | admin user/password, `KC_ADMIN_REALM`, `KC_SERVER_URL`    |
 | `no terminal for the password prompt`            | set `KC_ADMIN_PASSWORD_FILE` or run interactively         |
 | `login failed (client keycloak-config)`          | run `bootstrap-automation-client.sh`; check the secret file |
+| `HTTP 401 Unauthorized` after a successful client login | client scope `kc-admin-api` missing: rerun `bootstrap-automation-client.sh` |
 | `HTTP 403 Forbidden` with the automation client  | missing role: add it to `config/automation/keycloak-config.json`, rerun the bootstrap |
 | `required environment variable not set`          | load `environment`: `set -a; . ./environment; set +a`     |
 | `new user(s) ... require an initial password`    | set `KC_USER_INITIAL_PASSWORD_FILE`                       |

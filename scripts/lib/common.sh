@@ -41,8 +41,11 @@ die()           { printf '%s[ERROR]%s     %s\n' "$C_RED" "$C_RESET" "$*" >&2; ex
 
 # Record a change. In dry-run mode only report it.
 # Usage: record_change created|updated "<description>"
+LAST_CHANGE=""
+
 record_change() {
   CHANGES=$((CHANGES + 1))
+  LAST_CHANGE="$1: $2"
   if [[ "$DRY_RUN" == "1" ]]; then
     log_drift "would be $1: $2"
   elif [[ "$1" == "created" ]]; then
@@ -53,6 +56,17 @@ record_change() {
 }
 
 is_dry_run() { [[ "$DRY_RUN" == "1" ]]; }
+
+# Changes are reported just before they are applied. If a script fails,
+# point out the last reported change -- it may not have been applied.
+_on_exit() {
+  local rc=$?
+  if (( rc != 0 && rc != 3 )) && [[ -n "$LAST_CHANGE" ]] && ! is_dry_run; then
+    printf '%s[ERROR]%s     run aborted; last reported change may not have been applied: %s\n' \
+      "$C_RED" "$C_RESET" "$LAST_CHANGE" >&2
+  fi
+}
+trap _on_exit EXIT
 
 # Exit code: 0 = ok; in dry-run mode 3 = changes pending
 finish() {
@@ -202,7 +216,11 @@ realm_name() {
 }
 
 realm_exists() {
-  kc get realms --fields realm | jq -e --arg r "$1" 'any(.[]; .realm == $r)' >/dev/null
+  local out
+  # An API error (e.g. 401/403) must not be mistaken for "realm missing".
+  out="$(kc get realms --fields realm)" \
+    || die "cannot list realms -- authentication or permission problem (see message above)"
+  jq -e --arg r "$1" 'any(.[]; .realm == $r)' <<<"$out" >/dev/null
 }
 
 # Abort (or end the dry run) if the realm does not exist yet.

@@ -61,6 +61,24 @@ else
   fi
 fi
 
+# --- default client scopes ---------------------------------------------
+# Keycloak 26.8 requires the Admin API audience in the access token. It is
+# added by the client scope "kc-admin-api" (default scope of admin-cli);
+# without it every Admin API call of the service account gets HTTP 401.
+
+current_scopes="$(kc get "clients/${uuid}/default-client-scopes" -r "$master" | jq -c '[.[].name]')"
+realm_scopes="$(kc get client-scopes -r "$master" --fields id,name)"
+while IFS= read -r scope; do
+  if jq -e --arg s "$scope" 'index($s) != null' <<<"$current_scopes" >/dev/null; then
+    log_unchanged "client ${client_id}: default client scope ${scope}"
+    continue
+  fi
+  sid="$(jq -r --arg s "$scope" 'map(select(.name == $s)) | .[0].id // empty' <<<"$realm_scopes")"
+  [[ -n "$sid" ]] || die "client scope ${scope} not found in realm ${master}"
+  record_change updated "client ${client_id}: add default client scope ${scope}"
+  is_dry_run || kc_in update "clients/${uuid}/default-client-scopes/${sid}" -r "$master" -n -f - <<<'{}'
+done < <(jq -r '.defaultClientScopes[]?' "$automation_file")
+
 # --- roles of the service account user ---------------------------------
 
 sa_user="$(kc get "clients/${uuid}/service-account-user" -r "$master" --fields id,username)"
@@ -98,8 +116,9 @@ ensure_roles realm \
   "$(jq -c '[.realmMappings[]?.name]' <<<"$mappings")"
 
 mgmt_client="${realm}-realm"
-if kc get clients -r "$master" -q "clientId=${mgmt_client}" --fields clientId \
-     | jq -e --arg c "$mgmt_client" 'any(.[]; .clientId == $c)' >/dev/null; then
+mgmt_lookup="$(kc get clients -r "$master" -q "clientId=${mgmt_client}" --fields clientId)" \
+  || die "cannot look up client ${mgmt_client}"
+if jq -e --arg c "$mgmt_client" 'any(.[]; .clientId == $c)' <<<"$mgmt_lookup" >/dev/null; then
   ensure_roles "$mgmt_client" \
     "$(jq -c '.realmManagementRoles' "$automation_file")" \
     "$(jq -c --arg c "$mgmt_client" '[.clientMappings[$c].mappings[]?.name]' <<<"$mappings")"

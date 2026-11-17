@@ -1,6 +1,6 @@
 # Phase 5 -- Automation Account
 
-**Status:** Implemented and mock-tested; real test pending\
+**Status:** Implemented; real test in progress\
 **Related:** [requirements.md](requirements.md) (section 6),
 [phase-3-automation.md](phase-3-automation.md)
 
@@ -83,7 +83,38 @@ The mock does not enforce permissions. Whether the role set is
 sufficient for every operation must be verified against a real
 Keycloak.
 
-## 4. Real test plan
+## 4. Finding from the first real test: Admin API audience
+
+First run on `dev-keycloak-1`: the client login succeeded, but every
+Admin API call returned **HTTP 401 Unauthorized**.
+
+Cause: Keycloak 26.8 requires the Admin API audience in the access
+token. It is added by the client scope **`kc-admin-api`** (mapper
+`oidc-admin-api-audience-mapper`), which is a default scope of
+`admin-cli` but not of newly created clients.
+
+Fix:
+
+-   `config/automation/keycloak-config.json`:
+    `"defaultClientScopes": ["kc-admin-api"]`
+-   The bootstrap assigns missing default client scopes via
+    `clients/<id>/default-client-scopes/<scope-id>`.
+
+The same run revealed two weaknesses in the error handling, also fixed:
+
+-   `realm_exists` treated an API error as "realm missing" and went on
+    to create the realm. It now aborts with "cannot list realms --
+    authentication or permission problem".
+-   Changes are reported just before they are applied, so the log showed
+    `[CREATED] realm tasmofleet` although the creation failed. On an
+    abort the scripts now print the last reported change with the note
+    that it may not have been applied.
+
+The mock now emulates the 401 for client tokens without `kc-admin-api`;
+the full fresh-instance sequence (bootstrap → apply → bootstrap → apply)
+ends with 0 changes.
+
+## 5. Real test plan
 
 On `dev-keycloak-1` (reset):
 
