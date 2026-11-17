@@ -17,6 +17,7 @@ scripts (2026-11-16).
 | A3| First login of `tasmofleet-user` with the temporary password (Account Console `/realms/tasmofleet/account`) | Accepted, password change enforced |
 | A4| `apply-all.sh` after the password change                   | All `[UNCHANGED]` |
 | A5| Login with the new password after A4                       | OK -- existing password not reset |
+| A6| Non-ASCII data (2026-11-17): test user `mueller` with first/last name `Jörg Müller`, temporary password `wörd11!#` from `KC_TEMP_PASSWORD_FILE` | Created; second run all `[UNCHANGED]`; login with the temporary password OK, password change enforced; names shown correctly in the Account Console |
 
 Confirmed Keycloak behaviour:
 
@@ -29,6 +30,11 @@ Confirmed Keycloak behaviour:
 | Login via `docker exec -e ... bash -c`                    | Confirmed |
 | No values normalised differently by Keycloak              | Confirmed |
 | `login_theme` on an instance without that theme           | Not blocking |
+
+A6 confirms the secret-file handling (`*_FILE`, read verbatim) and the
+UTF-8 locale for `kcadm.sh`: umlauts and `!`/`#` pass through unchanged,
+and non-ASCII names cause no permanent drift. Usernames stay ASCII by
+decision.
 
 Issue found and fixed: blank lines from `kcadm.sh` on stderr cluttered
 the output; they are now filtered.
