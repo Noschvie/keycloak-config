@@ -17,7 +17,7 @@ scripts (2026-11-16).
 | A3| First login of `tasmofleet-user` with the temporary password (Account Console `/realms/tasmofleet/account`) | Accepted, password change enforced |
 | A4| `apply-all.sh` after the password change                   | All `[UNCHANGED]` |
 | A5| Login with the new password after A4                       | OK -- existing password not reset |
-| A6| Non-ASCII data (2026-11-17): test user `mueller` with first/last name `Jörg Müller`, temporary password `wörd11!#` from `KC_TEMP_PASSWORD_FILE` | Created; second run all `[UNCHANGED]`; login with the temporary password OK, password change enforced; names shown correctly in the Account Console |
+| A6| Non-ASCII data (2026-11-17): test user `mueller` with first/last name `Jörg Müller`, temporary password `wörd11!#` from `KC_USER_INITIAL_PASSWORD_FILE` | Created; second run all `[UNCHANGED]`; login with the temporary password OK, password change enforced; names shown correctly in the Account Console |
 
 Confirmed Keycloak behaviour:
 
